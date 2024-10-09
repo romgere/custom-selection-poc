@@ -10,6 +10,8 @@ type ItemPolygone<T> = { item: T, polygone: Polygone, rotation: boolean}
 const pos0 = { x: 0, y: 0};
 const rect0 = {...pos0, width: 0, height: 0 };
 
+const multiSelectionKeys = ['Meta', 'Control', 'Shift'];
+
 export type SelectableOption<T> = {
   area: HTMLElement;
   selectables?: T[];
@@ -37,10 +39,14 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   
   private _selectionStart: Coord = pos0;
   private _selectionRect: Rect = rect0;
-  
+
   private _selectableItems: SelectableType[];
   private _selection: SelectableType[] = [];
   private _selectableItemsPolygones: ItemPolygone<SelectableType>[] = [];
+
+  // Multi selection
+  private _multiSelection = false;
+  private _selectionOriginalSelection: SelectableType[] = [];
 
   constructor(options: SelectableOption<SelectableType>) {
     super();
@@ -53,12 +59,17 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     this._area.addEventListener('mousedown', this._startSelection.bind(this));
     this._area.addEventListener('mousemove', this._performSelection.bind(this));
     this._area.addEventListener('mouseup', this._releaseSelection.bind(this));
+    this._area.addEventListener('click', this._handleClickSelection.bind(this));
+
+    document.addEventListener('keydown', (e: KeyboardEvent) => this._handleSelectionModifier(e, true));
+    document.addEventListener('keyup', (e: KeyboardEvent) => this._handleSelectionModifier(e, false));
   }
 
   // Start selection mode, add selectionFeedback to DOM & compute selectable rect
   private _startSelection(e: MouseEvent) {
     this._selectionStart = { x: e.clientX, y: e.clientY };
     this._selectionRect = {...this._selectionStart, width: 0, height: 0 };
+    this._selectionOriginalSelection = [...this._selection];
 
     // Compute selectable element Polygones once for all at start (they are not supposed to move during the selection)
     this._computeSelectablePolygones();
@@ -87,8 +98,18 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
       // Update Selection Rect DOM position & size
       this._updateSelectionFeedback();
 
-      // Check what's inside selection
-      const newSelection = this._computeSelection();
+      // Check what's inside new selection Rect
+      let newSelection = this._computeSelection();
+
+      
+      if (this._multiSelection) {        
+        newSelection = [
+            // Keeps what was in original selection if not selected in current "selection session"
+            ...this._selectionOriginalSelection.filter(i => !newSelection.includes(i)),
+            // Remove from current "selection session" what was in original selection
+            ...newSelection.filter(i => !this._selectionOriginalSelection.includes(i)),
+        ];
+      }
 
       // Check if selection change & trigger event with new selection if needed
       let selectionChanged = this._selection.length !== newSelection.length
@@ -123,6 +144,31 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
       this.dispatchEvent(
         new CustomEvent("selectionend") as SelectionEndEvent,
       );
+    }
+  }
+
+  private _handleClickSelection(e: MouseEvent) {
+    const target = e.target as SelectableType;
+    if (e.target && this._selectableItems.includes(target)) {
+ 
+        if (this._multiSelection) {
+            if (this._selection.includes(target)) {
+                this._selection = this._selection.filter(i => i !== target);
+            } else {
+                this._selection.push(target)
+            }
+        }
+        else {
+            this._selection = [target]
+        }
+    
+        this._triggerSelectionChange();
+    }
+  }
+
+  private _handleSelectionModifier(e: KeyboardEvent, keydown: boolean) {    
+    if (multiSelectionKeys.includes(e.key)) {
+        this._multiSelection = keydown;
     }
   }
 
@@ -219,15 +265,6 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
 }
 
 
-
-
-// main.addEventListener('click', function(e) {
-//   if (e.target && [...selectableItems].includes(e.target as HTMLDivElement)) {
-//     (e.target as HTMLDivElement).classList.toggle('selected')
-//   }
-// });
-
-
 ////////////////////////////////////
 // Move to math-utils.ts
 function testSimpleRectCollision(rect1: Polygone, rect2: Polygone) {
@@ -255,8 +292,6 @@ function pointInRect(point: Coord, poly: Polygone) {
 
 
 function testPolygoneCollision(rect1: Polygone, rect2: Polygone) {
-
-
   // Considering 2 rects collisionning when for both rects, one of the vertice is contains in the other one.
 
   for (const vertice of rect1) {
