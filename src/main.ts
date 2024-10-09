@@ -1,233 +1,243 @@
 import './style.css';
-/*
-import './wc.ts';
 
-import { Draggable } from '@neodrag/vanilla';
-import Selectable from 'selectable.js';
+// https://github.com/daybrush/overlap-area ????
 
-const svg = `
-<svg id="report-page" viewBox="0 0 210mm 297mm" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    div {
-      height: 100%;
-      overflow: auto;
-    }
-  </style>
+type Coord = { x: number, y :number };
+type Rect = Coord & { width: number, height :number };
+// Rectangle "Polygone" is array of vertices. ! WARNING ! "point in poly" method need vertice to be in a sequential order (clockwise or anti-clockwise) otherwise it won't work.
+type Polygone = [Coord, Coord, Coord, Coord];
 
-  <defs>
-    <!-- A marker to be used as an arrowhead -->
-    <marker
-      id="arrow"
-      viewBox="0 0 10 10"
-      refX="5"
-      refY="5"
-      markerWidth="6"
-      markerHeight="6"
-      orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" />
-    </marker>
-  </defs>
+// Make this generic/dynamic
+type SelectableType = HTMLDivElement;
 
+const pos0 = { x: 0, y: 0};
+const rect0 = {...pos0, width: 0, height: 0 };
+const main = document.getElementById('app') as HTMLDivElement;
+const page = document.getElementById('report-page') as HTMLDivElement;
 
-  <g id="text-rect">
-  <rect x="5mm" y="5mm" width="200mm" height="25mm" stroke="black" fill="transparent" stroke-width="5" class="ui-selectable" />
+let isSelecting = false;
+let selectionFeedback: HTMLDivElement = document.createElement('div');
+selectionFeedback.classList.add('selection-rect')
 
-  <!-- Rich text -->
-  <foreignObject x="10mm" y="10mm" width="190mm" height="15mm">
-    <div class="text ui-selectable">
-      Lorem <b>ipsum dolor sit amet</b>, consectetur adipiscing elit. <u>Sed mollis mollis</u>
-      mi ut ultricies. Nullam magna ipsum, porta vel dui convallis, rutrum
-      imperdiet eros. <b>Aliquam <s>erat</s> volutpat</b>.
-    </div>
-  </foreignObject>
-  </g>
+let selectionStart: Coord = pos0;
+let selectionRect: Rect = rect0;
 
-  <rect draggable class="ui-selectable" x="30mm" y="40mm" width="25mm" height="25mm" stroke="black"  fill="red" stroke-width="5"/>
-  <rect draggable class="ui-selectable" x="40mm" y="50mm" width="25mm" height="25mm" stroke="black"  fill="blue" stroke-width="5"/>
-  <rect class="ui-selectable" x="50mm" y="60mm" width="25mm" height="25mm" stroke="black"  fill="green" stroke-width="5"/>
+const selectableItems = page.querySelectorAll<SelectableType>('[selectable]');
+type ItemPolygone = { item: SelectableType, polygone: Polygone}
+let selectableItemsPolygones: ItemPolygone[] = [];
 
+// Start selection mode, add selectionFeedback to DOM & compute selectable rect
+main.addEventListener('mousedown', function(e) {
+  selectionStart = { x: e.clientX, y: e.clientY };
+  selectionRect = {...selectionStart, width: 0, height: 0 };
 
-  <g id="rect-group">
-    <rect class="ui-selectable" x="130mm" y="50mm" width="15mm" height="15mm" stroke="black"  fill="orange" stroke-width="5"/>
-    <rect class="ui-selectable" x="160mm" y="50mm" width="15mm" height="15mm" stroke="black"  fill="orange" stroke-width="5"/>
-    <rect class="ui-selectable" x="145mm" y="80mm" width="15mm" height="15mm" stroke="black"  fill="orange" stroke-width="5"/>
-    <text class="ui-selectable" x="130mm" y="75mm">can we use SVG group ?</text>
-  </g>
+  // Compute selectable element Polygones once for all at start (they are not supposed to move during the selection)
+  computeSelectablePolygones();
+  
+  updateSelectionFeedback();
 
-  <!-- Custom element -->
-  <foreignObject x="10mm" y="100mm" width="90mm" height="100mm" id="wc-rect">
-  <div class="ui-selectable">
-    <my-custom-element foo="bar" bar="foo"></my-custom-element>
-    </div>
-  </foreignObject>
-  <foreignObject x="110mm" y="100mm" width="90mm" height="100mm">
-    <my-custom-element foo="bar" bar="foo"></my-custom-element>   
-  </foreignObject>
+  main.append(selectionFeedback);
 
-  <image href="https://placehold.co/600x400" x="25mm" y="150mm" height="400px" width="600px" id="img-drag" class="ui-selectable"/>
-
-
-  <!-- A line with a marker (this will probably need dedicated move/resize logic) -->
-  <line
-    class="ui-selectable"
-    id="line-drag"
-    x1="150mm"
-    y1="287mm"
-    x2="105mm"
-    y2="260mm"
-    stroke="black"
-    stroke-width="5"
-    marker-end="url(#arrow)" />
-</svg>
-`;
-
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = svg;
-
-const pxPermm = 3.779527537027993;
-
-// Selectable
-const selectable = new Selectable();
-
-let initialPos1 = { x: 0, y: 0 };
-const dragInstance = new Draggable(document.querySelector('[draggable]')!, {
-  transform: () => '',
-  onDragStart: ({ currentNode, offsetX, offsetY }) => {
-    selectable.disable();
-    const { x, y } = currentNode.getBBox();
-    initialPos1.x = initialPos1.x === 0 ? x : initialPos1.x;
-    initialPos1.y = initialPos1.y === 0 ? y : initialPos1.y;
-  },
-  onDrag: ({ offsetX, offsetY, currentNode }) => {
-    currentNode.setAttribute('x', initialPos1.x + offsetX);
-    currentNode.setAttribute('y', initialPos1.y + offsetY);
-  },
-  onDragEnd: ({ currentNode, rootNode, offsetX, offsetY }) => {
-    selectable.enable();
-    const { x, y } = currentNode.getBBox();
-    currentNode.setAttribute('x', `${x / pxPermm}mm`);
-    currentNode.setAttribute('y', `${y / pxPermm}mm`);
-  },
+  isSelecting = true;
 });
 
-const dragInstanceGroup = new Draggable(
-  document.querySelector('#rect-group')!,
-  {
-    onDragStart: () => {
-      selectable.disable();
-    },
-    onDragEnd: () => {
-      selectable.enable();
-    },
+// Update selection area & compute Selection
+main.addEventListener('mousemove', function(e) {
+  if (isSelecting) {
+    const x1 = Math.min(selectionStart.x, e.clientX);
+    const y1 = Math.min(selectionStart.y, e.clientY);
+    const x2 = Math.max(selectionStart.x, e.clientX);
+    const y2 = Math.max(selectionStart.y, e.clientY);
+
+    selectionRect = {x: x1, y: y1, width: x2 - x1, height: y2 - y1};
+
+    // Update Selection Rect DOM position & size
+    updateSelectionFeedback();
+
+    // Check what's inside selection
+    computeSelection();
   }
-);
-const dragInstanceWC = new Draggable(document.querySelector('#wc-rect')!, {
-  handle: document.querySelector('my-custom-element')!,
-  onDragStart: () => {
-    selectable.disable();
-  },
-  onDragEnd: () => {
-    selectable.enable();
-  },
 });
 
-const dragInstanceLineDrag = new Draggable(
-  document.querySelector('#line-drag')!,
-  {
-    onDragStart: () => {
-      selectable.disable();
-    },
-    onDragEnd: () => {
-      selectable.enable();
-    },
+// Stop Selection & get rid of selectionFeedback
+main.addEventListener('mouseup', function() {
+  if (isSelecting) {
+    selectionFeedback.remove()
+    selectionStart = pos0;
+    selectionRect = rect0;
+    isSelecting = false;
   }
-);
-const dragInstanceImgDrag = new Draggable(
-  document.querySelector('#img-drag')!,
-  {
-    onDragStart: () => {
-      selectable.disable();
-    },
-    onDragEnd: () => {
-      selectable.enable();
-    },
-  }
-);
-const dragInstanceTextRect = new Draggable(
-  document.querySelector('#text-rect')!,
-  {
-    onDragStart: () => {
-      selectable.disable();
-    },
-    onDragEnd: () => {
-      selectable.enable();
-    },
-  }
-);
-
-// Test zoom
-let zoom = 1;
-document.querySelector('#zoom-plus')?.addEventListener('click', function () {
-  zoom += 0.1;
-  updateZoom();
-});
-document.querySelector('#zoom-minus')?.addEventListener('click', function () {
-  zoom -= 0.1;
-  updateZoom();
-});
-document.querySelector('#zoom-reset')?.addEventListener('click', function () {
-  zoom = 1;
-  updateZoom();
 });
 
-function updateZoom() {
-  console.log(`scale(${zoom});`);
-  document.querySelector<HTMLDivElement>(
-    '#report-page'
-  )!.style.transform = `scale(${zoom})`;
+
+// This update the selection rect according to (new) selection start/end position
+function updateSelectionFeedback() {
+  selectionFeedback.style.left = `${selectionRect.x}px`;
+  selectionFeedback.style.top = `${selectionRect.y}px`;
+  selectionFeedback.style.width = `${selectionRect.width}px`;
+  selectionFeedback.style.height = `${selectionRect.height}px`;
 }
 
-let newRectIdx = 0;
-document.querySelector('#add-btn')?.addEventListener('click', function () {
-  const newRect = document.createElementNS(
-    'http://www.w3.org/2000/svg',
-    'rect'
-  );
-  newRect.setAttribute('x', `${50 + ++newRectIdx * 10}mm`);
-  newRect.setAttribute('y', `${60 + newRectIdx * 10}mm`);
-  newRect.setAttribute('height', '25mm');
-  newRect.setAttribute('width', '25mm');
-  newRect.setAttribute('stroke', 'black');
-  newRect.setAttribute(
-    'fill',
-    '#' + Math.round(0xffffff * Math.random()).toString(16)
-  );
-  newRect.setAttribute('stroke-width', '5');
-  newRect.setAttribute('draggable', '');
+// This compute polygones for all selectable elements
+function computeSelectablePolygones() {
 
-  let initialPos = { x: 0, y: 0 };
-  new Draggable(newRect, {
-    transform: () => '',
-    onDragStart: ({ currentNode, offsetX, offsetY }) => {
-      selectable.disable();
-      const { x, y } = currentNode.getBBox();
-      console.log(x, y);
-      initialPos.x = initialPos.x === 0 ? x : initialPos.x;
-      initialPos.y = initialPos.y === 0 ? y : initialPos.y;
-    },
-    onDrag: ({ offsetX, offsetY, currentNode }) => {
-      currentNode.setAttribute('x', initialPos.x + offsetX);
-      currentNode.setAttribute('y', initialPos.y + offsetY);
-    },
-    onDragEnd: ({ currentNode, rootNode, offsetX, offsetY }) => {
-      selectable.enable();
-      const { x, y } = currentNode.getBBox();
-      currentNode.setAttribute('x', `${x / pxPermm}mm`);
-      currentNode.setAttribute('y', `${y / pxPermm}mm`);
-    },
+  selectableItemsPolygones = [...selectableItems].map<ItemPolygone>((i) => {
+
+    // Extract rotation value from css (todo: refactor this)
+    const angle = i.style.transform.includes('rotate') ? parseInt(i.style.transform.replace('rotate(', '').replace('deg)', '')) : 0;
+
+    const rect = i.getBoundingClientRect();
+
+    if (!rotate) {
+      return {
+        item:i ,
+        polygone: [
+          { x: rect.left, y: rect.top }, // tl
+          { x: rect.right, y: rect.top }, // tr
+          { x: rect.right, y: rect.bottom }, // br
+          { x: rect.left, y: rect.bottom }, // bl
+        ]
+      }
+    }
+
+
+    const pageRect = page.getBoundingClientRect();
+
+    const center: Coord = {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    };
+
+    // Get unrotated rectangle Bounds
+    const x1 = mmToPx(parseInt(i.style.left)) + pageRect.left;
+    const y1 = mmToPx(parseInt(i.style.top)) + pageRect.top;
+
+    const width = mmToPx(parseInt(i.style.width));
+    const height = mmToPx(parseInt(i.style.height));
+
+    const x2 = x1 + width;
+    const y2 = y1 + height;
+
+    // Compute rotated vertice
+    const rectBounds: Polygone = [
+      rotate({x: x1, y: y1}, center, -angle), // tl
+      rotate({x: x2, y: y1}, center, -angle), // tr
+      rotate({x: x2, y: y2}, center, -angle), // br
+      rotate({x: x1, y: y2}, center, -angle), // bl
+    ];
+
+
+    return {
+      item: i,
+      polygone: rectBounds
+    };
   });
 
-  const svgEl = document.querySelector<SVGElement>('#app > svg') as SVGElement;
-  svgEl.appendChild(newRect);
-  selectable.add(newRect);
-});
-*/
+  // for debug, add small "pixel" at computed vertices position
+  // for (const p of selectableItemsPolygones ) {    
+  //   for (const k in p.polygone ) {
+  //     const d = document.createElement('div')
+  //     d.classList.add('debug');
+  //     d.style.left = `${p.polygone[k].x}px`;
+  //     d.style.top = `${p.polygone[k].y}px`;      
+  //     main.append(d);
+  //   }
+  // }
+}
+
+function computeSelection() {
+  const selectionPoly: Polygone = [
+    { x: selectionRect.x, y: selectionRect.y }, // tl
+    { x: selectionRect.x + selectionRect.width, y: selectionRect.y }, // tr
+    { x: selectionRect.x + selectionRect.width, y: selectionRect.y+ selectionRect.height }, // br
+    { x: selectionRect.x, y: selectionRect.y + selectionRect.height }, // bl
+  ];
+
+  const selectionInfo = selectableItemsPolygones.reduce<{selected: SelectableType[], unselected: SelectableType[]}>((acc, i) => {
+    
+    if (testCollision(selectionPoly, i.polygone)) {
+      acc.selected.push(i.item);
+    } else {
+      acc.unselected.push(i.item);
+    }
+
+    return acc;
+  }, { selected: [], unselected: [] });
+  
+  
+
+
+  console.log('selection', selectionInfo.selected?.map((e) => e.style.backgroundColor));
+
+  for (let e of selectionInfo.selected) {
+    e.classList.add('selected')
+  }
+  for (let e of selectionInfo.unselected) {
+    e.classList.remove('selected')
+  }
+}
+
+function testCollision(rect1: Polygone, rect2: Polygone) {
+  
+  // Considering 2 rects collisionning when for both rects, one of the vertice is contains in the other one.
+
+  for (const vertice of rect1) {
+    if (pointInPoly(vertice, rect2)) {
+      return true;
+    }
+  }
+
+  for (const vertice of rect2) {
+    if (pointInPoly(vertice, rect1)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+
+// ray-casting algorithm based on
+// https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+function pointInPoly(point: Coord, poly: Polygone) {
+  
+  const { x, y } = point;
+  
+  var inside = false;
+  for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i].x, yi = poly[i].y;
+      var xj = poly[j].x, yj = poly[j].y;
+      
+      var intersect = ((yi > y) != (yj > y))
+          && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+  }
+  
+  return inside;
+};
+
+
+
+
+/////////////////////////////////////////
+// From report engine
+function rotate(point: Coord, center: Coord, angle: number): Coord {
+  const { x: px, y: py } = point;
+  const { x: cx, y: cy } = center;
+
+  let radians = (Math.PI / 180) * angle;
+  let cos = Math.cos(radians);
+  let sin = Math.sin(radians);
+  let x = cos * (px - cx) + sin * (py - cy) + cx;
+  let y = cos * (py - cy) - sin * (px - cx) + cy;
+  return { x, y };
+}
+
+// https://github.com/daybrush/ruler?tab=readme-ov-file#ruler-units
+const pxPerMm = 3.77952; // Is this always true ?
+
+function mmToPx(mm: number) {
+  return mm * pxPerMm;
+}
+// From report engine
+/////////////////////////////////////////
