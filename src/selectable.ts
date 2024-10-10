@@ -145,6 +145,10 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     }
   }
 
+  stopSelection() {
+    this._releaseSelection()
+  }
+
   // Start selection mode, add selectionFeedback to DOM & compute selectable rect
   private _startSelection(e: MouseEvent) {
 
