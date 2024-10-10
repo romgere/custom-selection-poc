@@ -27,8 +27,6 @@ const RAW_RUNTIME_STATE =
       [null, {\
         "packageLocation": "./",\
         "packageDependencies": [\
-          ["@neodrag/vanilla", "npm:2.0.5"],\
-          ["selectable.js", "npm:0.22.0"],\
           ["typescript", "patch:typescript@npm%3A5.6.3#optional!builtin<compat/typescript>::version=5.6.3&hash=b45daf"],\
           ["vite", "virtual:fd3ca89bddcf0ab7b9e65ae14857e895c9215fcfdfe4bfa554d16c428071c7096481d157a1d7411d4a2dc1e04b37ddeaaa7770057c8e75f6d8ac06b7bf13dba3#npm:5.4.8"]\
         ],\
@@ -262,15 +260,6 @@ const RAW_RUNTIME_STATE =
             "wrap-ansi",\
             "npm:7.0.0"\
           ]]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["@neodrag/vanilla", [\
-      ["npm:2.0.5", {\
-        "packageLocation": "../../../.yarn/berry/cache/@neodrag-vanilla-npm-2.0.5-10d44f4b25-10c0.zip/node_modules/@neodrag/vanilla/",\
-        "packageDependencies": [\
-          ["@neodrag/vanilla", "npm:2.0.5"]\
         ],\
         "linkType": "HARD"\
       }]\
@@ -1235,15 +1224,6 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
-    ["selectable.js", [\
-      ["npm:0.22.0", {\
-        "packageLocation": "../../../.yarn/berry/cache/selectable.js-npm-0.22.0-3c14072dea-10c0.zip/node_modules/selectable.js/",\
-        "packageDependencies": [\
-          ["selectable.js", "npm:0.22.0"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
     ["semver", [\
       ["npm:7.6.3", {\
         "packageLocation": "../../../.yarn/berry/cache/semver-npm-7.6.3-57e82c14d5-10c0.zip/node_modules/semver/",\
@@ -1482,8 +1462,6 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./",\
         "packageDependencies": [\
           ["vite-typescript-starter", "workspace:."],\
-          ["@neodrag/vanilla", "npm:2.0.5"],\
-          ["selectable.js", "npm:0.22.0"],\
           ["typescript", "patch:typescript@npm%3A5.6.3#optional!builtin<compat/typescript>::version=5.6.3&hash=b45daf"],\
           ["vite", "virtual:fd3ca89bddcf0ab7b9e65ae14857e895c9215fcfdfe4bfa554d16c428071c7096481d157a1d7411d4a2dc1e04b37ddeaaa7770057c8e75f6d8ac06b7bf13dba3#npm:5.4.8"]\
         ],\

@@ -2,13 +2,17 @@ import './style.css';
 import Selectable, { type SelectionChangeEvent } from './selectable';
 
 
+let zoom = 1;
+
 const main = document.getElementById('app') as HTMLDivElement;
 const page = document.getElementById('report-page') as HTMLDivElement;
 const selectables = [...page.querySelectorAll<HTMLDivElement>('[selectable]')];
 
 const selectable = new Selectable({
   area: main,
-  selectables
+  selectionFeebackContainer: page,
+  selectables,
+  zoom
 });
 
 
@@ -21,3 +25,31 @@ selectable.addEventListener("selectionchange", (e: SelectionChangeEvent<HTMLDivE
 });
 
 selectable.addEventListener("selectionend", () => console.log('Select end !'));
+
+/////////////////////
+// Test zoom
+updateZoom();
+
+document.querySelector('#zoom-plus')?.addEventListener('click', function () {
+  zoom += 0.1;
+  updateZoom();
+});
+document.querySelector('#zoom-minus')?.addEventListener('click', function () {
+  zoom -= 0.1;
+  updateZoom();
+});
+document.querySelector('#zoom-reset')?.addEventListener('click', function () {
+  zoom = 1;
+  updateZoom();
+});
+
+function updateZoom() {
+  console.log(`scale(${zoom});`);
+  document.querySelector<HTMLDivElement>(
+    '#report-page'
+  )!.style.zoom = `${zoom}`;
+
+  selectable.updateOption({ zoom })
+}
+// Test zoom
+/////////////////////

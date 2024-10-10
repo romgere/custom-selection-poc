@@ -12,9 +12,14 @@ const rect0 = {...pos0, width: 0, height: 0 };
 
 const multiSelectionKeys = ['Meta', 'Control', 'Shift'];
 
-export type SelectableOption<T> = {
+type SelectableOption<T> = SelectableUpdatableOption & {
   area: HTMLElement;
+  selectionFeebackContainer?: HTMLElement
   selectables?: T[];
+};
+
+type SelectableUpdatableOption = {
+  zoom?: number;
 };
 
 export interface SelectionStartEvent extends Event {
@@ -35,6 +40,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   
   private _area: HTMLElement;
 
+  private _selectionFeebackContainer: HTMLElement
   private _selectionFeedback: HTMLDivElement; 
   
   private _selectionStart: Coord = pos0;
@@ -44,29 +50,130 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   private _selection: SelectableType[] = [];
   private _selectableItemsPolygones: ItemPolygone<SelectableType>[] = [];
 
+  private _zoomFactor: number = 1;
+
   // Multi selection
   private _multiSelection = false;
   private _selectionOriginalSelection: SelectableType[] = [];
 
   constructor(options: SelectableOption<SelectableType>) {
     super();
-    this._selectionFeedback = document.createElement('div');
-    this._selectionFeedback.classList.add('selection-rect')
 
     this._area = options.area;
     this._selectableItems = options.selectables ?? [];
+    this._selectionFeebackContainer = options.selectionFeebackContainer ?? options.area;
+
+    // Create and add selection feedback (hidden)
+    this._selectionFeedback = document.createElement('div');
+    this._selectionFeedback.classList.add('selection-rect')
+    this._selectionFeedback.style.display = "none";
+    this._selectionFeebackContainer.prepend(this._selectionFeedback)
+    
+    this.updateOption(options);
     
     this._area.addEventListener('mousedown', this._startSelection.bind(this));
     this._area.addEventListener('mousemove', this._performSelection.bind(this));
-    this._area.addEventListener('mouseup', this._releaseSelection.bind(this));
-    this._area.addEventListener('click', this._handleClickSelection.bind(this));
+    this._area.addEventListener('mouseup', this._releaseSelection.bind(this));    
 
     document.addEventListener('keydown', (e: KeyboardEvent) => this._handleSelectionModifier(e, true));
     document.addEventListener('keyup', (e: KeyboardEvent) => this._handleSelectionModifier(e, false));
   }
 
+  updateOption(options: SelectableUpdatableOption) {
+    this._zoomFactor = options.zoom ?? 1;
+  }
+
+  getSelection(): SelectableType[] {
+    return this._selection;
+  }
+
+  setSelection(newSelection:SelectableType[], triggerChangeEvent = true) {
+    console.log("newSelection", newSelection)
+
+    if (triggerChangeEvent) {
+      // Check if selection change & trigger event with new selection if needed
+      let selectionChanged = this._selection.length !== newSelection.length
+      || this._selection.find((i) => !newSelection.includes(i)) !== undefined
+      || newSelection.find((i) => !this._selection.includes(i)) !== undefined
+      
+      if (selectionChanged) {
+        this._selection = newSelection;
+        this._triggerSelectionChange();
+      }
+    } else {
+      this._selection = newSelection;
+    }
+  }
+
+  addToSelection(items: SelectableType[], triggerChangeEvent = true) {
+    const newSelected = this._selection.filter((i) => !items.includes(i));
+
+    if (newSelected) {
+      this._selection.push(...newSelected);
+      if (triggerChangeEvent) {
+        this._triggerSelectionChange();
+      }
+    }
+  }
+
+  removeFromSelection(items: SelectableType[], triggerChangeEvent = true) {
+    const newSelection = this._selection.filter((i) => !items.includes(i));
+
+    if (newSelection.length !== this._selection.length) {
+      this._selection = newSelection;
+      if (triggerChangeEvent) {
+        this._triggerSelectionChange();
+      }
+    }
+  }
+
+  addSelectables(items: SelectableType[], addToSelection = false, triggerChangeEvent = true) {
+    const newItems = this._selectableItems.filter((i) => !items.includes(i));
+
+    this._selectableItems.push(...newItems);
+    
+    if (addToSelection) {
+      this.addToSelection(items, triggerChangeEvent);
+    }
+  }
+
+  removeSelectables(items: SelectableType[], removeFromSelection = true, triggerChangeEvent = true) {
+    this._selectableItems = this._selectableItems.filter((i) => !items.includes(i));
+    
+    if (removeFromSelection) {
+      this.removeFromSelection(items, triggerChangeEvent)
+    }
+  }
+
   // Start selection mode, add selectionFeedback to DOM & compute selectable rect
   private _startSelection(e: MouseEvent) {
+
+    const target = e.target as SelectableType;
+    if (e.target && this._selectableItems.includes(target)) {
+ 
+      if (this._selection.includes(target)) {
+        if (this._multiSelection) {
+          // Remove item from selection
+          this.setSelection(this._selection.filter(i => i !== target));
+        } else {
+          // Multiple click on selected item has no effect
+          return;
+        }
+      } else {
+        if (this._multiSelection) {
+          // Add item to selection
+          this.setSelection([...this._selection, target]);
+        }
+        else {
+          // Single selection
+          this.setSelection([target]);
+        }
+      }
+    } else if (!this._multiSelection && this._selection.length) {
+      // "Classic click" (not multiple selection) outside of any selectable, clear the selection
+      this.setSelection([]);
+    }
+
     this._selectionStart = { x: e.clientX, y: e.clientY };
     this._selectionRect = {...this._selectionStart, width: 0, height: 0 };
     this._selectionOriginalSelection = [...this._selection];
@@ -76,7 +183,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     
     this._updateSelectionFeedback();
 
-    this._area.append(this._selectionFeedback);
+    this._selectionFeedback.style.display = "";
 
     this._isSelecting = true;
 
@@ -93,8 +200,14 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
       const x2 = Math.max(this._selectionStart.x, e.clientX);
       const y2 = Math.max(this._selectionStart.y, e.clientY);
 
-      this._selectionRect = {x: x1, y: y1, width: x2 - x1, height: y2 - y1};
-
+      // This is pos/size of selection (absolute to document)
+      this._selectionRect = {
+        x: x1,
+        y: y1,
+        width: x2 - x1,
+        height: y2 - y1
+      };
+      
       // Update Selection Rect DOM position & size
       this._updateSelectionFeedback();
 
@@ -111,16 +224,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
         ];
       }
 
-      // Check if selection change & trigger event with new selection if needed
-      let selectionChanged = this._selection.length !== newSelection.length
-        || this._selection.find((i) => !newSelection.includes(i)) !== undefined
-        || newSelection.find((i) => !this._selection.includes(i)) !== undefined
-
-
-      if (selectionChanged) {
-        this._selection = newSelection;
-        this._triggerSelectionChange();
-      }
+      this.setSelection(newSelection)
     }
   }
 
@@ -135,34 +239,15 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   // Stop Selection & get rid of selectionFeedback
   private _releaseSelection() {
     if (this._isSelecting) {
-      this._selectionFeedback.remove()
+      this._selectionFeedback.style.display = "none";
       this._selectionStart = pos0;
       this._selectionRect = rect0;
-      this._isSelecting = false;
 
+      this._isSelecting = false; 
 
       this.dispatchEvent(
         new CustomEvent("selectionend") as SelectionEndEvent,
       );
-    }
-  }
-
-  private _handleClickSelection(e: MouseEvent) {
-    const target = e.target as SelectableType;
-    if (e.target && this._selectableItems.includes(target)) {
- 
-        if (this._multiSelection) {
-            if (this._selection.includes(target)) {
-                this._selection = this._selection.filter(i => i !== target);
-            } else {
-                this._selection.push(target)
-            }
-        }
-        else {
-            this._selection = [target]
-        }
-    
-        this._triggerSelectionChange();
     }
   }
 
@@ -175,10 +260,22 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
 
   // This update the selection rect according to (new) selection start/end position
   private _updateSelectionFeedback() {
-    this._selectionFeedback.style.left = `${this._selectionRect.x}px`;
-    this._selectionFeedback.style.top = `${this._selectionRect.y}px`;
-    this._selectionFeedback.style.width = `${this._selectionRect.width}px`;
-    this._selectionFeedback.style.height = `${this._selectionRect.height}px`;
+
+    // Selection feedback is the only element that is affect by zoom or parent position,    
+    // we need to compute selection area postition/size according to its container.
+    // Selection logic is perform by using absolute position/size of selectable item & selection rect.
+    const containerRect = this._selectionFeebackContainer.getBoundingClientRect()
+
+              
+    const x = (this._selectionRect.x - containerRect.left) / this._zoomFactor;
+    const y = (this._selectionRect.y - containerRect.top) / this._zoomFactor;
+    const width = this._selectionRect.width / this._zoomFactor;
+    const height = this._selectionRect.height / this._zoomFactor;
+
+    this._selectionFeedback.style.left = `${x}px`;
+    this._selectionFeedback.style.top = `${y}px`;
+    this._selectionFeedback.style.width = `${width}px`;
+    this._selectionFeedback.style.height = `${height}px`;
   }
 
   // This compute polygones for all selectable elements

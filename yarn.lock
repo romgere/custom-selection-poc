@@ -180,13 +180,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@neodrag/vanilla@npm:^2.0.5":
-  version: 2.0.5
-  resolution: "@neodrag/vanilla@npm:2.0.5"
-  checksum: 10c0/f8afcbf5534ab4f31b1373663263e88f92f452dc8d003402ff11f1c891ea406ee7495306f8da74a04f318a50f6d4b5f72fe03303ea6b7e472d54746db1db7d2d
-  languageName: node
-  linkType: hard
-
 "@npmcli/agent@npm:^2.0.0":
   version: 2.2.2
   resolution: "@npmcli/agent@npm:2.2.2"
@@ -1117,13 +1110,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"selectable.js@npm:^0.22.0":
-  version: 0.22.0
-  resolution: "selectable.js@npm:0.22.0"
-  checksum: 10c0/135287ab85c969024288eaab3aaf97827fc83bee9efc90d97f65e50b7a6cde0141acd17b65b7a5873782361177084b206f696361c8900c67bf090d5e6baeb3f9
-  languageName: node
-  linkType: hard
-
 "semver@npm:^7.3.5":
   version: 7.6.3
   resolution: "semver@npm:7.6.3"
@@ -1303,8 +1289,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "vite-typescript-starter@workspace:."
   dependencies:
-    "@neodrag/vanilla": "npm:^2.0.5"
-    selectable.js: "npm:^0.22.0"
     typescript: "npm:^5.5.3"
     vite: "npm:^5.3.5"
   languageName: unknown

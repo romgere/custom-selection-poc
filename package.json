@@ -11,9 +11,5 @@
   "devDependencies": {
     "typescript": "^5.5.3",
     "vite": "^5.3.5"
-  },
-  "dependencies": {
-    "@neodrag/vanilla": "^2.0.5",
-    "selectable.js": "^0.22.0"
   }
 }
