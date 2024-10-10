@@ -7,8 +7,8 @@ type Polygone = [Coord, Coord, Coord, Coord];
 
 type ItemPolygone<T> = { item: T, polygone: Polygone, rotation: boolean}
 
-const pos0 = { x: 0, y: 0};
-const rect0 = {...pos0, width: 0, height: 0 };
+const pos0 = () => ({ x: 0, y: 0 });
+const rect0 = () => ({...pos0(), width: 0, height: 0 });
 
 const multiSelectionKeys = ['Meta', 'Control', 'Shift'];
 
@@ -43,8 +43,8 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   private _selectionFeebackContainer: HTMLElement
   private _selectionFeedback: HTMLDivElement; 
   
-  private _selectionStart: Coord = pos0;
-  private _selectionRect: Rect = rect0;
+  private _selectionStart: Coord = pos0();
+  private _selectionRect: Rect = rect0();
 
   private _selectableItems: SelectableType[];
   private _selection: SelectableType[] = [];
@@ -244,8 +244,8 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   private _releaseSelection() {
     if (this._isSelecting) {
       this._selectionFeedback.style.display = "none";
-      this._selectionStart = pos0;
-      this._selectionRect = rect0;
+      this._selectionStart = pos0();
+      this._selectionRect = rect0();
 
       this._isSelecting = false; 
 

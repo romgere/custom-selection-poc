@@ -9,7 +9,7 @@ type Move<T extends HTMLElement> = {
   lastDiff: Coord,
 }
 
-const pos0 = { x: 0, y: 0 };
+const pos0 = () => ({ x: 0, y: 0 });
 
 export interface MoveStartEvent extends Event {
   readonly type: "movestart";
@@ -44,8 +44,8 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
   private _zoomFactor: number = 1;
 
   // Data used during move
-  private _moveStart: Coord = pos0;
-  private _moveLast: Coord = pos0;
+  private _moveStart: Coord = pos0();
+  private _moveLast: Coord = pos0();
   private _movedItems: MoveableType[] = [];
   private _movedItemStart: Coord[] = [];
 
@@ -146,7 +146,7 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
       }
       const evt = new CustomEvent("moveend", { detail }) as MoveEndEvent<MoveableType>;
 
-      this._moveStart = this._moveLast = pos0;
+      this._moveStart = this._moveLast = pos0();
       this._movedItemStart = [];
       this._movedItems = [];
       this._isMoving = false;
@@ -173,6 +173,4 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
       }
     };
   }
-
-
 }
