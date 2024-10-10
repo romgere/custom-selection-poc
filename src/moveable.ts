@@ -10,6 +10,7 @@ type Move<T extends HTMLElement> = {
 }
 
 const pos0 = () => ({ x: 0, y: 0 });
+const moveKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
 export interface MoveStartEvent extends Event {
   readonly type: "movestart";
@@ -33,6 +34,12 @@ type MoveableOption<T extends HTMLElement> = MoveableMutableOption & {
 
 type MoveableMutableOption = {
   zoom?: number;
+  keyboardMoveGaps?: [number, number];
+};
+
+const defaultOptions: Required<MoveableMutableOption> = {
+  zoom: 1,
+  keyboardMoveGaps: [10, 40],
 };
 
 export default class Moveable<MoveableType extends HTMLElement> extends EventTarget {
@@ -41,7 +48,7 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
   private _area: HTMLElement;  
   private _moveableItems: MoveableType[];
   
-  private _zoomFactor: number = 1;
+  private _options: Required<MoveableMutableOption> = defaultOptions;
 
   // Data used during move
   private _moveStart: Coord = pos0();
@@ -64,10 +71,15 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
     this._area.addEventListener('mousedown', this._startMove.bind(this));
     this._area.addEventListener('mousemove', this._performMove.bind(this));
     this._area.addEventListener('mouseup', this._releaseMove.bind(this));
+
+    document.addEventListener('keydown', this._handleKeyboardAction.bind(this));
   }
 
   updateOption(options: MoveableMutableOption) {
-    this._zoomFactor = options.zoom ?? 1;
+    this._options = {
+      ...this._options,
+      ...options
+    };
   }
 
   private _startMove(e: MouseEvent) {
@@ -157,20 +169,63 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
 
   private _computeMoveData(e: MouseEvent, itemStartCoord: Coord) {
     const totalDiff = {
-      x: (e.clientX - this._moveStart.x) / this._zoomFactor,
-      y: (e.clientY - this._moveStart.y) / this._zoomFactor,
+      x: (e.clientX - this._moveStart.x) / this._options.zoom,
+      y: (e.clientY - this._moveStart.y) / this._options.zoom,
     };
 
     return {
       totalDiff,
       lastDiff: {
-        x: (e.clientX - this._moveLast.x) / this._zoomFactor,
-        y: (e.clientY - this._moveLast.y) / this._zoomFactor,
+        x: (e.clientX - this._moveLast.x) / this._options.zoom,
+        y: (e.clientY - this._moveLast.y) / this._options.zoom,
       },
       newPosition: {
         x: itemStartCoord.x + totalDiff.x,
         y: itemStartCoord.y + totalDiff.y
       }
     };
+  }
+
+  private _handleKeyboardAction(e: KeyboardEvent) {
+    const selection = this._selectable?.getSelection();
+
+    // Keyboard move is only available when selectable is set & there's a selection
+    if (selection?.length && moveKeys.includes(e.key)) {
+      
+      e.preventDefault();
+
+      this.dispatchEvent(new CustomEvent("movestart") as MoveStartEvent);
+
+      const moveFactor = e.shiftKey ? this._options.keyboardMoveGaps[1] : this._options.keyboardMoveGaps[0];
+      const moveAxis = ['ArrowLeft', 'ArrowRight'].includes(e.key) ? 'x' : 'y';
+      const moveDirection = ['ArrowDown', 'ArrowRight'].includes(e.key) ? 1 : -1;
+
+
+      const detail: Move<MoveableType>[] = [];
+      
+      for (let i = 0; i < selection.length; i++) {
+
+        // Total & last diff are the same for keyboard move. A move by keyboard is a "standalone" move workflow (start, move & end)
+        const diff = pos0();
+        diff[moveAxis] += moveFactor * moveDirection;
+
+        const itemStyle = getComputedStyle(selection[i]);
+        const newPosition = {
+          x: parseFloat(itemStyle.left),
+          y: parseFloat(itemStyle.top),
+        };
+        newPosition[moveAxis] += moveFactor * moveDirection;
+
+        detail.push({
+          item: selection[i],
+          newPosition,
+          totalDiff: diff,
+          lastDiff: diff
+        });
+      }
+
+      this.dispatchEvent(new CustomEvent("move", { detail }) as MoveEvent<MoveableType>);
+      this.dispatchEvent(new CustomEvent("moveend", { detail }) as MoveEndEvent<MoveableType>);
+    }
   }
 }

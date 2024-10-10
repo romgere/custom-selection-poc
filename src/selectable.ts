@@ -11,6 +11,7 @@ const pos0 = () => ({ x: 0, y: 0 });
 const rect0 = () => ({...pos0(), width: 0, height: 0 });
 
 const multiSelectionKeys = ['Meta', 'Control', 'Shift'];
+const keyboardSelectionCodes = ['Enter', 'Space'];
 
 type SelectableOption<T> = SelectableMutableOption & {
   area: HTMLElement;
@@ -20,6 +21,10 @@ type SelectableOption<T> = SelectableMutableOption & {
 
 type SelectableMutableOption = {
   zoom?: number;
+};
+
+const defaultOptions: Required<SelectableMutableOption> = {
+  zoom: 1,
 };
 
 export interface SelectionStartEvent extends Event {
@@ -50,7 +55,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   private _selection: SelectableType[] = [];
   private _selectableItemsPolygones: ItemPolygone<SelectableType>[] = [];
 
-  private _zoomFactor: number = 1;
+  private _options: Required<SelectableMutableOption> = defaultOptions;
 
   // Multi selection
   private _multiSelection = false;
@@ -75,12 +80,15 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     this._area.addEventListener('mousemove', this._performSelection.bind(this));
     this._area.addEventListener('mouseup', this._releaseSelection.bind(this));    
 
-    document.addEventListener('keydown', (e: KeyboardEvent) => this._handleSelectionModifier(e, true));
-    document.addEventListener('keyup', (e: KeyboardEvent) => this._handleSelectionModifier(e, false));
+    document.addEventListener('keydown', (e: KeyboardEvent) => this._handleKeyboardAction(e, true));
+    document.addEventListener('keyup', (e: KeyboardEvent) => this._handleKeyboardAction(e, false));
   }
 
   updateOption(options: SelectableMutableOption) {
-    this._zoomFactor = options.zoom ?? 1;
+    this._options = {
+      ...this._options,
+      ...options
+    };
   }
 
   getSelection(): SelectableType[] {
@@ -153,26 +161,8 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   private _startSelection(e: MouseEvent) {
 
     const target = e.target as SelectableType;
-    if (e.target && this._selectableItems.includes(target)) {
- 
-      if (this._selection.includes(target)) {
-        if (this._multiSelection) {
-          // Remove item from selection
-          this.setSelection(this._selection.filter(i => i !== target));
-        } else {
-          // Multiple click on selected item has no effect
-          return;
-        }
-      } else {
-        if (this._multiSelection) {
-          // Add item to selection
-          this.setSelection([...this._selection, target]);
-        }
-        else {
-          // Single selection
-          this.setSelection([target]);
-        }
-      }
+    if (e.target && this._selectableItems.includes(target)) {      
+      this._selectSingleItem(target);      
     } else if (!this._multiSelection && this._selection.length) {
       // "Classic click" (not multiple selection) outside of any selectable, clear the selection
       this.setSelection([]);
@@ -240,6 +230,24 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     );
   }
 
+  private _selectSingleItem(item: SelectableType) {
+    if (this._selection.includes(item)) {
+      if (this._multiSelection) {
+        // Remove item from selection
+        this.setSelection(this._selection.filter(i => i !== item));
+      }
+    } else {
+      if (this._multiSelection) {
+        // Add item to selection
+        this.setSelection([...this._selection, item]);
+      }
+      else {
+        // Single selection
+        this.setSelection([item]);
+      }
+    }
+  }
+
   // Stop Selection & get rid of selectionFeedback
   private _releaseSelection() {
     if (this._isSelecting) {
@@ -255,9 +263,13 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     }
   }
 
-  private _handleSelectionModifier(e: KeyboardEvent, keydown: boolean) {    
+  private _handleKeyboardAction(e: KeyboardEvent, keydown: boolean) {    
+    
     if (multiSelectionKeys.includes(e.key)) {
         this._multiSelection = keydown;
+    }
+    else if (!keydown && keyboardSelectionCodes.includes(e.code) && document.activeElement && this._selectableItems.includes(document.activeElement as SelectableType)) {
+      this._selectSingleItem(document.activeElement as SelectableType);
     }
   }
 
@@ -265,16 +277,16 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   // This update the selection rect according to (new) selection start/end position
   private _updateSelectionFeedback() {
 
-    // Selection feedback is the only element that is affect by zoom or parent position,    
-    // we need to compute selection area postition/size according to its container.
-    // Selection logic is perform by using absolute position/size of selectable item & selection rect.
+    // Selection feedback is the only element that is affected by zoom or parent position,    
+    // we need to compute selection area position/size according to its container position & current zoom.
+    // (selection logic is perform by using absolute position/size of selectable item & selection rect, no need to perform zoom/repositionning on this part).
     const containerRect = this._selectionFeebackContainer.getBoundingClientRect()
 
               
-    const x = (this._selectionRect.x - containerRect.left) / this._zoomFactor;
-    const y = (this._selectionRect.y - containerRect.top) / this._zoomFactor;
-    const width = this._selectionRect.width / this._zoomFactor;
-    const height = this._selectionRect.height / this._zoomFactor;
+    const x = (this._selectionRect.x - containerRect.left) / this._options.zoom;
+    const y = (this._selectionRect.y - containerRect.top) / this._options.zoom;
+    const width = this._selectionRect.width / this._options.zoom;
+    const height = this._selectionRect.height / this._options.zoom;
 
     this._selectionFeedback.style.left = `${x}px`;
     this._selectionFeedback.style.top = `${y}px`;
