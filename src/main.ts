@@ -2,7 +2,7 @@ import './style.css';
 import Selectable, { type SelectionChangeEvent } from './selectable';
 import Moveable, { type MoveEvent, MoveEndEvent } from './moveable';
 
-let zoom = 0.5;
+let zoom = 1;
 
 const main = document.getElementById('app') as HTMLDivElement;
 const page = document.getElementById('report-page') as HTMLDivElement;
@@ -24,16 +24,21 @@ selectable.addEventListener("selectionchange", (e: SelectionChangeEvent<HTMLDivE
 const moveable = new Moveable({
   area: main,
   moveables: items,
-  zoom
+  zoom,
+  selectable
 });
 moveable.addEventListener("movestart", () => selectable.stopSelection());
 moveable.addEventListener("moveend", (e: MoveEndEvent<HTMLDivElement>) => {
-  e.detail.item.style.left = `${pxToMm(e.detail.newPosition.x)}mm`;
-  e.detail.item.style.top = `${pxToMm(e.detail.newPosition.y)}mm`;
+  for (const move of e.detail) {
+    move.item.style.left = `${pxToMm(move.newPosition.x)}mm`;
+    move.item.style.top = `${pxToMm(move.newPosition.y)}mm`;
+  }
 });
 moveable.addEventListener("move", (e: MoveEvent<HTMLDivElement>) => {
-  e.detail.item.style.left = `${e.detail.newPosition.x}px`;
-  e.detail.item.style.top = `${e.detail.newPosition.y}px`;
+  for (const move of e.detail) {
+    move.item.style.left = `${move.newPosition.x}px`;
+    move.item.style.top = `${move.newPosition.y}px`;
+  }
 });
 
 

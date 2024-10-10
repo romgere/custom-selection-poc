@@ -12,13 +12,13 @@ const rect0 = {...pos0, width: 0, height: 0 };
 
 const multiSelectionKeys = ['Meta', 'Control', 'Shift'];
 
-type SelectableOption<T> = SelectableUpdatableOption & {
+type SelectableOption<T> = SelectableMutableOption & {
   area: HTMLElement;
   selectionFeebackContainer?: HTMLElement
   selectables?: T[];
 };
 
-type SelectableUpdatableOption = {
+type SelectableMutableOption = {
   zoom?: number;
 };
 
@@ -79,7 +79,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     document.addEventListener('keyup', (e: KeyboardEvent) => this._handleSelectionModifier(e, false));
   }
 
-  updateOption(options: SelectableUpdatableOption) {
+  updateOption(options: SelectableMutableOption) {
     this._zoomFactor = options.zoom ?? 1;
   }
 
