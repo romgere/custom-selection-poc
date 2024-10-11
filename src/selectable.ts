@@ -46,6 +46,7 @@ export interface SelectionEndEvent extends Event {
 
 export default class Selectable<SelectableType extends HTMLElement> extends EventTarget {
   private _isSelecting = false;
+  private _isMouseSelectionInit = false;
   
   private _area: HTMLElement;
 
@@ -100,7 +101,6 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   }
 
   setSelection(newSelection:SelectableType[], triggerChangeEvent = true) {
-    console.log("newSelection", newSelection)
 
     if (triggerChangeEvent) {
       // Check if selection change & trigger event with new selection if needed
@@ -176,15 +176,11 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     this._selectionRect = {...this._selectionStart, width: 0, height: 0 };
     this._selectionOriginalSelection = [...this._selection];
 
-    // Compute selectable element Polygones once for all at start (they are not supposed to move during the selection)
-    this._computeSelectablePolygones();
-    
-    this._updateSelectionFeedback();
-
-    this._selectionFeedback.style.display = "";
-
+    // We used to compute selectable polygone & update UI here, but given it's a costly operation,
+    // and the "_startSelection" is trigger even for single click select, it has been move into _performSelection, on first call
+    this._isMouseSelectionInit = false;
     this._isSelecting = true;
-
+    
     this.dispatchEvent(
       new CustomEvent("selectionstart") as SelectionStartEvent,
     );
@@ -193,6 +189,15 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   // Update selection area & compute Selection
   private _performSelection(e: MouseEvent) {
     if (this._isSelecting) {
+
+      // Compute selectable element Polygones once for all at start (they are not supposed to move during the selection)
+      if (!this._isMouseSelectionInit) {
+        this._computeSelectablePolygones();            
+        this._updateSelectionFeedback();
+        this._selectionFeedback.style.display = "";
+        this._isMouseSelectionInit = true;
+      }
+      
       const x1 = Math.min(this._selectionStart.x, e.clientX);
       const y1 = Math.min(this._selectionStart.y, e.clientY);
       const x2 = Math.max(this._selectionStart.x, e.clientX);
@@ -277,7 +282,6 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     }
   }
 
-
   // This update the selection rect according to (new) selection start/end position
   private _updateSelectionFeedback() {
 
@@ -303,12 +307,11 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
 
     this._selectableItemsPolygones = [...this._selectableItems].map<ItemPolygone<SelectableType>>((i) => {
 
-      // Extract rotation value from css (todo: refactor this)
       const angle = getAngleFromTransform(i.style.transform);
 
-      let rect = i.getBoundingClientRect();
-
+      
       if (!angle) {
+        const rect = i.getBoundingClientRect();
         return {
           item:i ,
           rotation: false,
@@ -321,35 +324,28 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
         }
       }
 
-      // TODO: could this be refacto ?
-      // Here we need to find the absolute position & size of the rotated item
-      // easy solution is to crate a "clone" item (that have same x,y, width & height) but without rotation
-      const computedstyle = getComputedStyle(i);
+      // Here we compute the "viewport relative" position & size of the rotated item
+      const parentRect = i.parentElement?.getBoundingClientRect();
+      const parentCoord = parentRect ? { x: parentRect.left, y: parentRect.top } : pos0();
 
-      const tempClone = document.createElement('div');
-      tempClone.style.left = computedstyle.left;
-      tempClone.style.top = computedstyle.top;
-      tempClone.style.width = computedstyle.width;
-      tempClone.style.height = computedstyle.height;
-      tempClone.style.position = computedstyle.position;
-
-      i.parentElement?.append(tempClone);
-
-      rect = tempClone.getBoundingClientRect();
-
-      tempClone.remove();
-
+      const rect = {
+        x: i.offsetLeft * this._options.zoom + parentCoord.x,
+        y: i.offsetTop * this._options.zoom + parentCoord.y,
+        width: i.offsetWidth * this._options.zoom,
+        height: i.offsetHeight * this._options.zoom
+      }
+      
       const center: Coord = {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
+        x: rect.x + rect.width / 2,
+        y: rect.y + rect.height / 2,
       };
 
       // Compute rotated vertice
       const rectBounds: Polygone = [
-        rotate({ x: rect.left, y: rect.top }, center, -angle), // tl
-        rotate({ x: rect.right, y: rect.top }, center, -angle), // tr
-        rotate({ x: rect.right, y: rect.bottom }, center, -angle), // br
-        rotate({ x: rect.left, y: rect.bottom }, center, -angle), // bl
+        rotate({ x: rect.x, y: rect.y }, center, -angle), // tl
+        rotate({ x: rect.x + rect.width, y: rect.y }, center, -angle), // tr
+        rotate({ x: rect.x + rect.width, y: rect.y + rect.height }, center, -angle), // br
+        rotate({ x: rect.x, y: rect.y + rect.height }, center, -angle), // bl
       ];
 
       return {

@@ -7,9 +7,10 @@ export function size0() { return { width: 0, height: 0 } };
 export function pos0() { return { x: 0, y: 0 } };
 export function rect0() { return {...pos0(), width: 0, height: 0 } };
 
-// Extract rotation value from css (todo: refactor this)
+// Extract rotation value from a css transform 
 export function getAngleFromTransform(transform: string) {
-  return transform.includes('rotate') ? parseInt(transform.replace('rotate(', '').replace('deg)', '')) : 0;
+  const match = transform.trim().match(/rotate\((.*?)deg\)/)
+  return match && match.length ? parseInt(match[1]) : 0;
 }
 
 ////////////////////////////////////

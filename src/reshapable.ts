@@ -68,12 +68,22 @@ type ReshapableOption<T extends HTMLElement> = ReshapableMutableOption & {
 type ReshapableMutableOption = {
   zoom?: number;
   rotationStep?: number,
+  observedAttributes?: string[];
 };
 
 const defaultOptions: Required<ReshapableMutableOption> = {
   zoom: 1,
   rotationStep: 15,
+  observedAttributes: ['style', 'width', 'height']
 };
+
+// This allow to keep track of item we resize/rotate
+type ReshapableItemRef<T extends HTMLElement> ={
+  observer: MutationObserver,
+  item: T;
+  resizeUIContainer: HTMLDivElement;
+}
+
 
 /**
  * Disclamer: here we're dealing only with "viewport relative" coordinates. There's 2 places where we get/need "parent relative" positions : 
@@ -84,11 +94,10 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
   private _options: Required<ReshapableMutableOption> = defaultOptions;
 
   // Support for Selectable, 
-  private _selectable?: Selectable<ReshapableType>;
-  private _reshapableItems: ReshapableType[];
+  private _selectable?: Selectable<ReshapableType>;  
 
-  // Keep track of existing UI elements
-  private _resizeUIItems: { item: ReshapableType, resizeUIContainer: HTMLDivElement }[] = [];
+  // Keep track of existing Resizable Item, UI elements & observer
+  private _resizeUIItems: ReshapableItemRef<ReshapableType>[] = [];
   
   // Values that are computed when rotate/resize is starting
   private _initialHandlePosition: Record<ResizeHandleName, Coord> = {
@@ -121,13 +130,12 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
     super();
 
     this._selectable = options.selectable;
-    this._reshapableItems = options.reshapables ?? [];
         
     this.updateOption(options);
 
     // When used with seletable, automatically update reshapable list when selection change
     if (this._selectable) {
-      this._selectable.addEventListener("selectionchange", this._onSelectionEnd.bind(this));
+      this._selectable.addEventListener("selectionchange", this._onSelectionChange.bind(this));
     }
     
     document.addEventListener("mousemove", this._onMouseMove.bind(this));
@@ -142,8 +150,9 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
   }
 
   setReshapableItems(items: ReshapableType[]) {
-    const newItems = items.filter((i) => !this._reshapableItems.includes(i));
-    const deletedItems = this._reshapableItems.filter((i) => !items.includes(i));
+    const existingItems = this._resizeUIItems.map(({item}) => item)
+    const newItems = items.filter((i) => !existingItems.includes(i));
+    const deletedItems = existingItems.filter((i) => !items.includes(i));
 
     // Remove old UI
     for (const i of deletedItems) {
@@ -154,15 +163,13 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
     for(const i of newItems) {
       this._drawUi(i)
     }
-
-    this._reshapableItems = [...items];
   }
 
   clearReshapableItems() {
     this.setReshapableItems([])
   }
 
-  private _onSelectionEnd() {
+  private _onSelectionChange() {
     this.setReshapableItems(this._selectable?.getSelection() ?? []);
   }
 
@@ -196,12 +203,34 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
 
     this._updateUIStyle(container, item);
 
+    // Observe style changes to update UI when needed
+    const observer = new MutationObserver(this._onReshapableItemMutation(item, container));
+    observer.observe(item, { attributes: true });
+
     this._resizeUIItems.push({
       item,
-      resizeUIContainer: container
+      resizeUIContainer: container,
+      observer
     });
 
     item.after(container);
+  }
+
+  private _onReshapableItemMutation(item: ReshapableType, resizeUIContainer: HTMLDivElement) {
+    let animationReq: number | undefined;
+    // Keep a single ref to update metho for that item, so that we can improve update by using cancelAnimationFrame/requestAnimationFrame
+    const performUpdate = () => {
+      this._updateUIStyle(resizeUIContainer, item);
+    };
+
+    return (mutationList: MutationRecord []) => {
+      for (const mutation of mutationList) {
+        if (mutation.type === 'attributes' && mutation.attributeName && this._options.observedAttributes.includes(mutation.attributeName)) {
+          animationReq && cancelAnimationFrame(animationReq);
+          animationReq = requestAnimationFrame(performUpdate)          
+        }
+      }
+    }
   }
 
   // Move/resize/rotate UI according to its item
@@ -227,7 +256,7 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
     container.style.transform = angle ? `rotate(${angle}deg)` : '';    
   }
 
-  private _getItemUi(item: ReshapableType, remove = false) {
+  private _getItemUi(item: ReshapableType, remove = false): ReshapableItemRef<ReshapableType> | undefined {
     const idx = this._resizeUIItems.findIndex((e) => e.item === item)
     if (idx < 0) {
       return;
@@ -239,8 +268,8 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
   private _removeUi(item: ReshapableType) {
     const ui = this._getItemUi(item, true);
     if (ui) {
+      ui.observer.disconnect();
       ui.resizeUIContainer.remove()
-      // Remove event listener ?
     }
   }
 
@@ -273,15 +302,17 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
 
   private _onMouseMove(e: MouseEvent) {
 
-    if (this._IsRotating && this._initialCenter && this._currentItem) {
+    const mouse = {x: e.clientX, y: e.clientY};
+
+    if (this._IsRotating && this._currentItem) {
 
       const ui = this._getItemUi(this._currentItem);
       if (!ui) return; // make TS happy
 
       let angle = Math.round(
         Math.atan2(
-          e.pageX - this._initialCenter.x,
-          -(e.pageY - this._initialCenter.y),
+          mouse.x - this._initialCenter.x,
+          -(mouse.y - this._initialCenter.y),
         ) *
           (180 / Math.PI),
       );
@@ -310,7 +341,7 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
       ui.resizeUIContainer.style.transform = `rotate(${angle}deg)`;
     }
 
-    if (this._isResizing && this._initialSize && this._currentItem) {
+    if (this._isResizing && this._currentItem) {
 
       const ui = this._getItemUi(this._currentItem);
       if (!ui) return; // make TS happy
@@ -319,12 +350,8 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
       let newY = 0;
       let newWidth = this._initialSize.width;
       let newHeight = this._initialSize.height;
-      let translateX = 0;
-      let translateY = 0;
 
       const { _initialAngle: angle } = this;
-
-      const mouse: Coord = { x: e.pageX , y: e.pageY };
 
       // https://shihn.ca/posts/2020/resizing-rotated-elements/ (rotate function provided is wrong, but explanations are great)
       if (this._resizeHandleName === "br") {
@@ -353,9 +380,7 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
         newWidth = unrotatedBR.x - newTL.x;
         newHeight = unrotatedBR.y - newTL.y;
         newX = newTL.x;
-        newY = newTL.y;
-        // translateX = this._initialSize?.width - newWidth;
-        // translateY = this._initialSize?.height - newHeight;
+        newY = newTL.y;;
       } else if (this._resizeHandleName === "tr") {
         // Moving TR corner : BL corner is fix
         const { bl } = this._initialHandlePosition;
@@ -366,7 +391,6 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
         newHeight = unrotatedBL.y - newTR.y;
         newX = unrotatedBL.x;
         newY = newTR.y;
-        // translateY = this._initialSize?.height - newHeight;
       } else if (this._resizeHandleName === "bl") {
         // Moving BL corner : TR corner is fix
         const { tr } = this._initialHandlePosition;
@@ -377,7 +401,6 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
         newHeight = newBL.y - unrotatedTR.y;
         newX = newBL.x;
         newY = unrotatedTR.y;
-        // translateX = this._initialSize?.width - newWidth;
       } else if (this._resizeHandleName === "tc") {
         // Moving top center : BC is fix
 
@@ -415,8 +438,6 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
         newHeight = unrotatedBC.y - newTC.y;
         newX = center.x - this._initialSize?.width / 2;
         newY = center.y - newHeight / 2;
-
-        // translateY = this._initialSize?.height - newHeight;
       } else if (this._resizeHandleName === "bc") {
         // Moving top center : TC is fix
         let BC: Coord | undefined = undefined;
@@ -449,24 +470,22 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
         newX = center.x - this._initialSize?.width / 2;
         newY = center.y - newHeight / 2;
       }
+      
+      const translateX = (newX - this._initialPosition.x) / this._options.zoom;
+      const translateY = (newY - this._initialPosition.y) / this._options.zoom;
 
-      translateX = newX - this._initialPosition.x;
-      translateY = newY - this._initialPosition.y;
+      // Handle zoom
+      newWidth = newWidth / this._options.zoom;
+      newHeight = newHeight / this._options.zoom;
+      
 
       let transform = "";
-
       if (translateX || translateY) {
-        transform += ` translate(${translateX}px, ${translateY}px)`;
+        transform += `translate(${translateX}px, ${translateY}px)`;
       }
       if (this._initialAngle) {
         transform += ` rotate(${this._initialAngle}deg)`;
       }
-
-
-      
-      // translateX = this._initialSize?.width - newWidth;
-      // translateY = this._initialSize?.height - newHeight;
-      
       
       ui.resizeUIContainer.style.transform = transform;
       ui.resizeUIContainer.style.height = `${newHeight}px`;
@@ -571,22 +590,13 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
     this._parentCoords = parentRect ? { x: parentRect.left , y: parentRect.top }: pos0();
 
     // get item initial position (& "convert" to "viewport relative")
-    // this._initialPosition = {
-    //   x: parseFloat(container.style.left) + this._parentCoords.x,
-    //   y: parseFloat(container.style.top) + this._parentCoords.y,
-    // };
-    // this._initialSize = {
-    //   width: parseFloat(container.style.width), //container.clientWidth,
-    //   height: parseFloat(container.style.height), //container.clientHeight,
-    // };
-
     this._initialPosition = {
-      x: container.offsetLeft + this._parentCoords.x,
-      y: container.offsetTop + this._parentCoords.y,
+      x: container.offsetLeft * this._options.zoom + this._parentCoords.x,
+      y: container.offsetTop * this._options.zoom + this._parentCoords.y,
     };
     this._initialSize = {
-      width: container.offsetWidth,
-      height: container.offsetHeight,
+      width: container.offsetWidth * this._options.zoom,
+      height: container.offsetHeight * this._options.zoom,
     };
 
     this._initialCenter = {
@@ -614,8 +624,8 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
 
   private _toParentRelative(rect: Rect) : Rect {
     return {
-      x: rect.x - (this._parentCoords?.x ?? 0),
-      y: rect.y - (this._parentCoords?.y ?? 0),
+      x: (rect.x - (this._parentCoords?.x ?? 0)) / this._options.zoom,
+      y: (rect.y - (this._parentCoords?.y ?? 0)) / this._options.zoom,
       width: rect.width,
       height: rect.height,
     }
