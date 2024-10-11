@@ -55,6 +55,7 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
   private _moveLast: Coord = pos0();
   private _movedItems: MoveableType[] = [];
   private _movedItemStart: Coord[] = [];
+  private _containerInitialPosition : Coord = pos0(); // Track eventual scrolling during selection
 
   // Support for Selectable, for moving multiple item at once
   private _selectable?: Selectable<MoveableType>;
@@ -92,14 +93,17 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
 
       this._moveStart = { x: e.clientX, y: e.clientY };
       this._moveLast = { x: e.clientX, y: e.clientY };
-      this._movedItemStart = [];
-
+      
+      const areaRect = this._area.getBoundingClientRect();
+      this._containerInitialPosition = { x: areaRect.left, y: areaRect.top };
+      
       if (!this._selectable) {
         this._movedItems = [target];
       } else {
         this._movedItems = [...this._selectable.getSelection()];
       }
-
+      
+      this._movedItemStart = [];
       for( const item of this._movedItems) {
         const itemStyle = getComputedStyle(item);
         this._movedItemStart.push({
@@ -168,16 +172,24 @@ export default class Moveable<MoveableType extends HTMLElement> extends EventTar
   }
 
   private _computeMoveData(e: MouseEvent, itemStartCoord: Coord) {
+
+    // Detect scrolling during selection & take into account
+    const areaRect = this._area.getBoundingClientRect()
+    const scrollTranslate = {
+      x: areaRect.left - this._containerInitialPosition.x,
+      y: areaRect.top - this._containerInitialPosition.y
+    };
+    
     const totalDiff = {
-      x: (e.clientX - this._moveStart.x) / this._options.zoom,
-      y: (e.clientY - this._moveStart.y) / this._options.zoom,
+      x: (e.clientX - this._moveStart.x - scrollTranslate.x) / this._options.zoom,
+      y: (e.clientY - this._moveStart.y - scrollTranslate.y) / this._options.zoom,
     };
 
     return {
       totalDiff,
       lastDiff: {
-        x: (e.clientX - this._moveLast.x) / this._options.zoom,
-        y: (e.clientY - this._moveLast.y) / this._options.zoom,
+        x: (e.clientX - this._moveLast.x - scrollTranslate.x) / this._options.zoom,
+        y: (e.clientY - this._moveLast.y - scrollTranslate.y) / this._options.zoom,
       },
       newPosition: {
         x: itemStartCoord.x + totalDiff.x,

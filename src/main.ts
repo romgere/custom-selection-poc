@@ -16,20 +16,16 @@ const selectable = new Selectable({
   selectables: items,
   zoom
 });
-// We no longer need that given Reshapable can handle that for use (add resize/rotate UI to selection)
-// selectable.addEventListener("selectionchange", (e: SelectionChangeEvent<HTMLDivElement>) => {
-//   items.filter(i => !e.detail.selection.includes(i)).forEach(i => i.classList.remove("selected"));
-//   e.detail.selection.forEach(i => i.classList.add("selected"));
-// });
-
-
 const moveable = new Moveable({
   area: main,
   moveables: items,
   zoom,
   selectable
 });
-moveable.addEventListener("movestart", () => selectable.stopSelection());
+const reshapable = new Reshapable({
+  selectable,
+  zoom
+})
 moveable.addEventListener("moveend", (e: MoveEndEvent<HTMLDivElement>) => {
   for (const move of e.detail) {
     move.item.style.left = `${pxToMm(move.newPosition.x)}mm`;
@@ -42,11 +38,6 @@ moveable.addEventListener("move", (e: MoveEvent<HTMLDivElement>) => {
     move.item.style.top = `${move.newPosition.y}px`;
   }
 });
-
-const reshapable = new Reshapable({
-  selectable,
-  zoom
-})
 reshapable.addEventListener("reshapeend", (e: ReshapeEndEvent<HTMLDivElement>) => {
   const { item } = e.detail
   if (e.detail.type === 'resize') {

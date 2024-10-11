@@ -124,7 +124,7 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
 
   // What action is being performed
   private _isResizing = false;
-  private _IsRotating = false;
+  private _isRotating = false;
 
   constructor(options: ReshapableOption<ReshapableType>) {
     super();
@@ -291,7 +291,7 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
     return (e: MouseEvent) => {
       e.stopPropagation();
       this._computedInitialValues(item);
-      this._IsRotating = true;
+      this._isRotating = true;
       this._currentItem = item;
 
       this.dispatchEvent(new CustomEvent("reshapestart", {
@@ -302,9 +302,26 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
 
   private _onMouseMove(e: MouseEvent) {
 
-    const mouse = {x: e.clientX, y: e.clientY};
+    if (!this._currentItem || (!this._isResizing && !this._isRotating)) {
+      return;
+    }
+    
+    // Detect scrolling during selection & take into account
+    const { parentElement: parent } = this._currentItem;
+    const parentRect = parent?.getBoundingClientRect();
+    const newParentCoords = parentRect ? { x: parentRect.left , y: parentRect.top }: pos0();
+    
+    const scrollTranslate = {
+      x: newParentCoords.x - this._parentCoords.x,
+      y: newParentCoords.y - this._parentCoords.y
+    };
 
-    if (this._IsRotating && this._currentItem) {
+    const mouse = {
+      x: e.clientX - scrollTranslate.x,
+      y: e.clientY - scrollTranslate.y
+    };
+
+    if (this._isRotating) {
 
       const ui = this._getItemUi(this._currentItem);
       if (!ui) return; // make TS happy
@@ -341,7 +358,7 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
       ui.resizeUIContainer.style.transform = `rotate(${angle}deg)`;
     }
 
-    if (this._isResizing && this._currentItem) {
+    if (this._isResizing) {
 
       const ui = this._getItemUi(this._currentItem);
       if (!ui) return; // make TS happy
@@ -516,12 +533,12 @@ export default class Reshapable<ReshapableType extends HTMLElement> extends Even
   }
 
   private _onMouseUp() {
-    if (this._IsRotating && this._currentItem) {
+    if (this._isRotating && this._currentItem) {
 
       const ui = this._getItemUi(this._currentItem);
       if (!ui) return; // make TS happy
 
-      this._IsRotating = false;
+      this._isRotating = false;
 
       if (this._pendingRotation !== this._initialAngle) {
         this.dispatchEvent(

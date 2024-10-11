@@ -7,86 +7,88 @@
     <title>Vite + TS</title>
   </head>
   <body>
-    <div style="text-align: center; width: 100%; height: 20px; padding: 1rem">
-      <button id="zoom-plus">+</button>
-      <button id="zoom-reset">=</button>
-      <button id="zoom-minus">-</button>
-    </div>
-    <div id="app">
-      <div id="report-page">
-        <div
-          style="
-            left: 20mm;
-            top: 10mm;
-            background-color: red;
-            width: 40mm;
-            height: 40mm;
-          "
-          class="shape"
-          selectable
-          tabindex="0"
-        ></div>
-        <div
-          style="
-            left: 80mm;
-            top: 10mm;
-            background-color: blue;
-            width: 40mm;
-            height: 40mm;
-          "
-          class="shape"
-          selectable
-          tabindex="0"
-        ></div>
-        <div
-          style="
-            left: 80mm;
-            top: 85mm;
-            background-color: yellow;
-            width: 40mm;
-            height: 40mm;
-            transform: rotate(45deg);
-          "
-          class="shape"
-          selectable
-          tabindex="0"
-        ></div>
-        <div
-          style="
-            left: 80mm;
-            top: 150mm;
-            background-color: green;
-            width: 40mm;
-            height: 40mm;
-          "
-          class="shape"
-          selectable
-          tabindex="0"
-        ></div>
-        <div
-          style="
-            left: 95mm;
-            top: 165mm;
-            background-color: orange;
-            width: 40mm;
-            height: 40mm;
-          "
-          class="shape"
-          selectable
-          tabindex="0"
-        ></div>
-        <div
-          style="
-            left: 110mm;
-            top: 180mm;
-            background-color: pink;
-            width: 40mm;
-            height: 40mm;
-          "
-          class="shape"
-          selectable
-          tabindex="0"
-        ></div>
+    <div id="container">
+      <div style="text-align: center; width: 100%; height: 20px; padding: 1rem">
+        <button id="zoom-plus">+</button>
+        <button id="zoom-reset">=</button>
+        <button id="zoom-minus">-</button>
+      </div>
+      <div id="app">
+        <div id="report-page">
+          <div
+            style="
+              left: 20mm;
+              top: 10mm;
+              background-color: red;
+              width: 40mm;
+              height: 40mm;
+            "
+            class="shape"
+            selectable
+            tabindex="0"
+          ></div>
+          <div
+            style="
+              left: 80mm;
+              top: 10mm;
+              background-color: blue;
+              width: 40mm;
+              height: 40mm;
+            "
+            class="shape"
+            selectable
+            tabindex="0"
+          ></div>
+          <div
+            style="
+              left: 80mm;
+              top: 85mm;
+              background-color: yellow;
+              width: 40mm;
+              height: 40mm;
+              transform: rotate(45deg);
+            "
+            class="shape"
+            selectable
+            tabindex="0"
+          ></div>
+          <div
+            style="
+              left: 80mm;
+              top: 150mm;
+              background-color: green;
+              width: 40mm;
+              height: 40mm;
+            "
+            class="shape"
+            selectable
+            tabindex="0"
+          ></div>
+          <div
+            style="
+              left: 95mm;
+              top: 165mm;
+              background-color: orange;
+              width: 40mm;
+              height: 40mm;
+            "
+            class="shape"
+            selectable
+            tabindex="0"
+          ></div>
+          <div
+            style="
+              left: 110mm;
+              top: 180mm;
+              background-color: pink;
+              width: 40mm;
+              height: 40mm;
+            "
+            class="shape"
+            selectable
+            tabindex="0"
+          ></div>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

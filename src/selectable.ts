@@ -55,6 +55,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
   
   private _selectionStart: Coord = pos0();
   private _selectionRect: Rect = rect0();
+  private _containerInitialPosition : Coord = pos0(); // Track eventual scrolling during selection
 
   private _selectableItems: SelectableType[];
   private _selection: SelectableType[] = [];
@@ -174,7 +175,10 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
 
     this._selectionStart = { x: e.clientX, y: e.clientY };
     this._selectionRect = {...this._selectionStart, width: 0, height: 0 };
-    this._selectionOriginalSelection = [...this._selection];
+    this._selectionOriginalSelection = [...this._selection];    
+
+    const areaRect = this._area.getBoundingClientRect();
+    this._containerInitialPosition = { x: areaRect.left, y: areaRect.top };
 
     // We used to compute selectable polygone & update UI here, but given it's a costly operation,
     // and the "_startSelection" is trigger even for single click select, it has been move into _performSelection, on first call
@@ -197,11 +201,18 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
         this._selectionFeedback.style.display = "";
         this._isMouseSelectionInit = true;
       }
+
+      // Detect scrolling during selection
+      const areaRect = this._area.getBoundingClientRect()
+      const scrollTranslate = {
+        x: areaRect.left - this._containerInitialPosition.x,
+        y: areaRect.top - this._containerInitialPosition.y
+      };
       
-      const x1 = Math.min(this._selectionStart.x, e.clientX);
-      const y1 = Math.min(this._selectionStart.y, e.clientY);
-      const x2 = Math.max(this._selectionStart.x, e.clientX);
-      const y2 = Math.max(this._selectionStart.y, e.clientY);
+      const x1 = Math.min(this._selectionStart.x + scrollTranslate.x, e.clientX);
+      const y1 = Math.min(this._selectionStart.y + scrollTranslate.y, e.clientY);
+      const x2 = Math.max(this._selectionStart.x + scrollTranslate.x, e.clientX);
+      const y2 = Math.max(this._selectionStart.y + scrollTranslate.y, e.clientY);
 
       // This is pos/size of selection (absolute to document)
       this._selectionRect = {
@@ -215,7 +226,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
       this._updateSelectionFeedback();
 
       // Check what's inside new selection Rect
-      let newSelection = this._computeSelection();
+      let newSelection = this._computeSelection(scrollTranslate);
 
       
       if (this._multiSelection) {        
@@ -356,7 +367,14 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     });
   }
 
-  private _computeSelection() {
+  private _translatePolygone(p: Polygone, translate: Coord) {
+    return p.map(({x, y}) => ({
+      x: x + translate.x,
+      y: y + translate.y,
+    }));
+  }
+
+  private _computeSelection(scrollValues: Coord) {
     const selectionPoly: Polygone = [
       { x: this._selectionRect.x, y: this._selectionRect.y }, // tl
       { x: this._selectionRect.x + this._selectionRect.width, y: this._selectionRect.y }, // tr
@@ -367,10 +385,10 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     return this._selectableItemsPolygones.filter((i) => {
             
       // Does not waste time with complex math when item is not rotated
-      if (!i.rotation && testSimpleRectCollision(selectionPoly, i.polygone)) {
+      if (!i.rotation && testSimpleRectCollision(selectionPoly, this._translatePolygone(i.polygone, scrollValues))) {
         return true;
       }
-      else if (i.rotation && testPolygoneCollision(selectionPoly, i.polygone)) {
+      else if (i.rotation && testPolygoneCollision(selectionPoly, this._translatePolygone(i.polygone, scrollValues))) {
         return true;
       } 
       return false;
