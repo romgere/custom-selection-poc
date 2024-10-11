@@ -1,0 +1,96 @@
+.reshapable-container {
+  pointer-events: none;
+  display: block;
+  position: absolute;
+  background: transparent;
+
+  /* Move that elsewhere ? */
+  --reshapable-selection-rect-color: rgb(53, 106, 186);
+  --reshapable-selection-rect-border-size: 2px;
+
+  --reshapable-resize-handle-size: 8px;
+  --reshapable-resize-handle-border-size: 2px;
+  --reshapable-rotate-handle-gap-size: 2rem;
+}
+
+.reshapable-container > .selection-border {
+  position: absolute;
+  background: transparent;
+  border: var(--reshapable-selection-rect-border-size) solid
+      var(--reshapable-selection-rect-color);
+  height: calc(100% + var(--reshapable-selection-rect-border-size));
+  width: calc(100% + var(--reshapable-selection-rect-border-size));
+  top: calc(0px - (var(--reshapable-selection-rect-border-size) / 2));
+  left: calc(0px - (var(--reshapable-selection-rect-border-size) / 2));
+
+  box-sizing: border-box;
+}
+
+.reshapable-container > .resize-handle,
+.reshapable-container > .rotate-handle {
+  width: var(--reshapable-resize-handle-size);
+  height: var(--reshapable-resize-handle-size);
+  border-radius: var(--reshapable-resize-handle-size);
+
+  box-sizing: border-box;
+  position: absolute;
+
+  pointer-events: initial;
+}
+
+.reshapable-container > .resize-handle {
+  background: var(--reshapable-selection-rect-color);
+  box-shadow: 0px 0px 0px var(--reshapable-resize-handle-border-size) white;
+}
+
+.reshapable-container > .rotate-handle {
+  background: white;
+
+  box-shadow: 0px 0px 0px var(--reshapable-resize-handle-border-size)
+      var(--reshapable-selection-rect-color);
+
+  left: calc(50% - (var(--reshapable-resize-handle-size) / 2));
+  top: calc(0px - var(--reshapable-rotate-handle-gap-size));
+
+  cursor: crosshair;
+}
+
+.reshapable-container > .rotate-bar {
+  width: var(--reshapable-resize-handle-border-size);
+  height: var(--reshapable-rotate-handle-gap-size);
+  background-color: var(--reshapable-selection-rect-color);
+  position: absolute;
+
+  left: calc(50% - (var(--reshapable-resize-handle-border-size) / 2));
+  top: calc(0px - var(--reshapable-rotate-handle-gap-size));
+}
+
+.reshapable-container > .resize-handle.top {
+  top: calc(0px - (var(--reshapable-resize-handle-size) / 2));
+}
+.reshapable-container > .resize-handle.bottom {
+  bottom: calc(0px - (var(--reshapable-resize-handle-size) / 2));
+}
+.reshapable-container > .resize-handle.center {
+  left: calc(50% - (var(--reshapable-resize-handle-size) / 2));
+}
+.reshapable-container > .resize-handle.left {
+  left: calc(0px - (var(--reshapable-resize-handle-size) / 2));
+}
+.reshapable-container > .resize-handle.right {
+  right: calc(0px - (var(--reshapable-resize-handle-size) / 2));
+}
+
+.reshapable-container > .resize-handle.center {
+  cursor: ns-resize;
+}
+
+.reshapable-container > .resize-handle.top.left,
+.reshapable-container > .resize-handle.bottom.right {
+  cursor: nwse-resize;
+}
+
+.reshapable-container > .resize-handle.bottom.left,
+.reshapable-container > .resize-handle.top.right {
+  cursor: nesw-resize;
+}

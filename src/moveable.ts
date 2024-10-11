@@ -1,6 +1,6 @@
 import Selectable from './selectable';
-
-type Coord = { x: number, y :number };
+import { pos0 } from './utils';
+import type { Coord } from './utils';
 
 type Move<T extends HTMLElement> = {
   item: T;
@@ -9,7 +9,7 @@ type Move<T extends HTMLElement> = {
   lastDiff: Coord,
 }
 
-const pos0 = () => ({ x: 0, y: 0 });
+
 const moveKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
 
 export interface MoveStartEvent extends Event {

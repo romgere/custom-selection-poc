@@ -1,6 +1,8 @@
 import './style.css';
+import './reshapable.css';
 import Selectable, { type SelectionChangeEvent } from './selectable';
-import Moveable, { type MoveEvent, MoveEndEvent } from './moveable';
+import Moveable, { type MoveEvent, type MoveEndEvent } from './moveable';
+import Reshapable, { type ReshapeEndEvent } from './reshapable';
 
 let zoom = 1;
 
@@ -14,11 +16,11 @@ const selectable = new Selectable({
   selectables: items,
   zoom
 });
-selectable.addEventListener("selectionchange", (e: SelectionChangeEvent<HTMLDivElement>) => {
-  console.log('selectionchange', e.detail.selection.map(e => e.style.backgroundColor));
-  items.filter(i => !e.detail.selection.includes(i)).forEach(i => i.classList.remove("selected"));
-  e.detail.selection.forEach(i => i.classList.add("selected"));
-});
+// selectable.addEventListener("selectionchange", (e: SelectionChangeEvent<HTMLDivElement>) => {
+//   console.log('selectionchange', e.detail.selection.map(e => e.style.backgroundColor));
+//   items.filter(i => !e.detail.selection.includes(i)).forEach(i => i.classList.remove("selected"));
+//   e.detail.selection.forEach(i => i.classList.add("selected"));
+// });
 
 
 const moveable = new Moveable({
@@ -41,6 +43,22 @@ moveable.addEventListener("move", (e: MoveEvent<HTMLDivElement>) => {
   }
 });
 
+
+const reshapable = new Reshapable({
+  selectable
+})
+reshapable.addEventListener("reshapeend", (e: ReshapeEndEvent<HTMLDivElement>) => {
+  const { item } = e.detail
+  if (e.detail.type === 'resize') {
+    item.style.left = `${e.detail.parentRelative.x}px`;
+    item.style.top = `${e.detail.parentRelative.y}px`;
+    item.style.width = `${e.detail.parentRelative.width}px`;
+    item.style.height = `${e.detail.parentRelative.height}px`;
+
+  } else if (e.detail.type === 'rotate') {
+    item.style.transform = `rotate(${e.detail.angle}deg)`;
+  }  
+})
 
 
 /////////////////////

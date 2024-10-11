@@ -1,14 +1,18 @@
-import './style.css';
-
-type Coord = { x: number, y :number };
-type Rect = Coord & { width: number, height :number };
-// Rectangle "Polygone" is array of vertices. ! WARNING ! "point in poly" method need vertice to be in a sequential order (clockwise or anti-clockwise) otherwise it won't work.
-type Polygone = [Coord, Coord, Coord, Coord];
+import {
+  testSimpleRectCollision,
+  testPolygoneCollision,
+  rotate,
+  pos0,
+  rect0,
+  getAngleFromTransform
+} from './utils'
+import type {
+  Coord,
+  Rect,
+  Polygone
+} from './utils'
 
 type ItemPolygone<T> = { item: T, polygone: Polygone, rotation: boolean}
-
-const pos0 = () => ({ x: 0, y: 0 });
-const rect0 = () => ({...pos0(), width: 0, height: 0 });
 
 const multiSelectionKeys = ['Meta', 'Control', 'Shift'];
 const keyboardSelectionCodes = ['Enter', 'Space'];
@@ -300,7 +304,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     this._selectableItemsPolygones = [...this._selectableItems].map<ItemPolygone<SelectableType>>((i) => {
 
       // Extract rotation value from css (todo: refactor this)
-      const angle = i.style.transform.includes('rotate') ? parseInt(i.style.transform.replace('rotate(', '').replace('deg)', '')) : 0;
+      const angle = getAngleFromTransform(i.style.transform);
 
       let rect = i.getBoundingClientRect();
 
@@ -317,6 +321,7 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
         }
       }
 
+      // TODO: could this be refacto ?
       // Here we need to find the absolute position & size of the rotated item
       // easy solution is to crate a "clone" item (that have same x,y, width & height) but without rotation
       const computedstyle = getComputedStyle(i);
@@ -376,89 +381,3 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
     }).map(i => i.item);
   }
 }
-
-
-////////////////////////////////////
-// Move to math-utils.ts
-function testSimpleRectCollision(rect1: Polygone, rect2: Polygone) {
-
-  for (const vertice of rect1) {
-    if (pointInRect(vertice, rect2)) {
-      return true;
-    }
-  }
-
-  for (const vertice of rect2) {
-    if (pointInRect(vertice, rect1)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-
-function pointInRect(point: Coord, poly: Polygone) {
-  return point.x >= poly[0].x && point.x <= poly[1].x
-    && point.y >= poly[0].y && point.y <= poly[2].y;
-}
-
-
-function testPolygoneCollision(rect1: Polygone, rect2: Polygone) {
-  // Considering 2 rects collisionning when for both rects, one of the vertice is contains in the other one.
-
-  for (const vertice of rect1) {
-    if (pointInPoly(vertice, rect2)) {
-      return true;
-    }
-  }
-
-  for (const vertice of rect2) {
-    if (pointInPoly(vertice, rect1)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-
-
-// ray-casting algorithm based on
-// https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
-function pointInPoly(point: Coord, poly: Polygone) {
-  
-  const { x, y } = point;
-  
-  var inside = false;
-  for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      var xi = poly[i].x, yi = poly[i].y;
-      var xj = poly[j].x, yj = poly[j].y;
-      
-      var intersect = ((yi > y) != (yj > y))
-          && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-  }
-  
-  return inside;
-};
-// Move to math-utils.ts
-////////////////////////////////////
-
-
-/////////////////////////////////////////
-// From report engine
-function rotate(point: Coord, center: Coord, angle: number): Coord {
-  const { x: px, y: py } = point;
-  const { x: cx, y: cy } = center;
-
-  let radians = (Math.PI / 180) * angle;
-  let cos = Math.cos(radians);
-  let sin = Math.sin(radians);
-  let x = cos * (px - cx) + sin * (py - cy) + cx;
-  let y = cos * (py - cy) - sin * (px - cx) + cy;
-  return { x, y };
-}
-
-// From report engine
-/////////////////////////////////////////
