@@ -1,5 +1,4 @@
 import {
-  testSimpleRectCollision,
   testPolygoneCollision,
   rotate,
   pos0,
@@ -382,16 +381,8 @@ export default class Selectable<SelectableType extends HTMLElement> extends Even
       { x: this._selectionRect.x, y: this._selectionRect.y + this._selectionRect.height }, // bl
     ];
 
-    return this._selectableItemsPolygones.filter((i) => {
-            
-      // Does not waste time with complex math when item is not rotated
-      if (!i.rotation && testSimpleRectCollision(selectionPoly, this._translatePolygone(i.polygone, scrollValues))) {
-        return true;
-      }
-      else if (i.rotation && testPolygoneCollision(selectionPoly, this._translatePolygone(i.polygone, scrollValues))) {
-        return true;
-      } 
-      return false;
+    return this._selectableItemsPolygones.filter((i) => {      
+      return testPolygoneCollision(selectionPoly, this._translatePolygone(i.polygone, scrollValues));
     }).map(i => i.item);
   }
 }
